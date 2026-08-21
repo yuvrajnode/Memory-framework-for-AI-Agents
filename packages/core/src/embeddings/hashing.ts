@@ -69,9 +69,14 @@ export class HashingEmbedder implements EmbeddingProvider {
     const tokens = tokenize(text);
     if (tokens.length === 0) return vector;
 
+    // Occurrences and per-feature salience are tracked separately: term
+    // frequency must stay an integer count for the sublinear scaling below to
+    // behave, while salience says how much a *class* of feature is trusted.
     const counts = new Map<string, number>();
-    const bump = (feature: string, amount: number) => {
-      counts.set(feature, (counts.get(feature) ?? 0) + amount);
+    const salience = new Map<string, number>();
+    const bump = (feature: string, weight: number) => {
+      counts.set(feature, (counts.get(feature) ?? 0) + 1);
+      salience.set(feature, weight);
     };
 
     for (let i = 0; i < tokens.length; i += 1) {
@@ -91,7 +96,7 @@ export class HashingEmbedder implements EmbeddingProvider {
 
     for (const [feature, count] of counts) {
       // Sublinear scaling keeps a repeated word from dominating the vector.
-      const weight = 1 + Math.log(count);
+      const weight = (salience.get(feature) ?? 1) * (1 + Math.log(count));
       const index = hash32(feature) % this.dimensions;
       // A second, independent hash picks the sign, which makes collisions
       // cancel out on average instead of accumulating.

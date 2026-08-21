@@ -1,4 +1,5 @@
 import { mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { StoreError } from '../errors.js';
 import type { MemoryFilter, MemoryLink, MemoryRecord } from '../types.js';
@@ -103,9 +104,14 @@ export class SqliteStore implements MemoryStore {
     if (this.path !== ':memory:') {
       await mkdir(dirname(this.path), { recursive: true });
     }
+    // Loaded through createRequire rather than a static or dynamic import:
+    // bundlers routinely fail to resolve `node:sqlite` (it postdates their
+    // builtin lists) and would otherwise break the build of any app that
+    // merely imports this module without using it.
     let DatabaseSync: new (path: string) => SqliteDatabase;
     try {
-      ({ DatabaseSync } = (await import('node:sqlite')) as unknown as {
+      const require = createRequire(import.meta.url);
+      ({ DatabaseSync } = require('node:sqlite') as {
         DatabaseSync: new (path: string) => SqliteDatabase;
       });
     } catch (error) {
