@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import type { MemoryEngine } from '@mnemos/core';
 import { registerAuth } from './auth.js';
 import type { ServerConfig } from './config.js';
@@ -27,7 +27,13 @@ export async function buildApp(
     },
     bodyLimit: config.bodyLimitBytes,
     trustProxy: true,
-    disableRequestLogging: config.nodeEnv === 'production',
+    // Per-request logging is noise in production, where the access log belongs
+    // to the proxy in front of this service. Fastify 5 moved the switch onto
+    // a LogController instance; the deprecated top-level flag is avoided so
+    // this does not break on Fastify 6.
+    logController: new LogController({
+      disableRequestLogging: config.nodeEnv === 'production',
+    }),
   });
 
   await app.register(helmet, {
