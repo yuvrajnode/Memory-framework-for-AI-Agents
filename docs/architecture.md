@@ -198,6 +198,27 @@ This is what makes `@mnemos/core/browser` possible, and therefore what makes
 the dashboard a real static demo rather than a mock: the ranking a visitor sees
 is the actual implementation.
 
+## Measuring ranking quality
+
+Retrieval is an aggregate property, so it is measured rather than asserted.
+`test/fixtures/corpus.ts` holds a labelled corpus — twelve memories across all
+four kinds, each tagged with a stable `ref`, plus twelve queries naming the
+record that should rank first. `test/retrieval-quality.test.ts` runs it and
+pins top-1 accuracy, MRR, top-5 recall, exact-identifier lookup, and the
+margin between the correct answer and the best wrong one.
+
+That harness is what found the two ranking defects fixed in this repository:
+`cosineScore` mapping unrelated text to 0.5 rather than 0, and default weights
+that had been guessed rather than searched. The thresholds sit below the
+measured values on purpose — they are there to catch regressions, not to
+freeze the current numbers.
+
+A twelve-query benchmark is small, and it is worth being explicit about what
+that means: it is enough to catch a change that breaks ranking, and not enough
+to justify deleting a feature. The grid search's optimum sets the importance
+weight to zero; the shipped defaults do not, because a benchmark this size is
+not evidence that the caller's main lever over persistence should be removed.
+
 ## Known limits
 
 Worth stating plainly:

@@ -8,7 +8,7 @@ Hybrid recall, principled forgetting, consolidation, and token-budgeted context 
 [![CI](https://github.com/yuvrajnode/Memory-framework-for-AI-Agents/actions/workflows/ci.yml/badge.svg)](https://github.com/yuvrajnode/Memory-framework-for-AI-Agents/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)
-![Tests](https://img.shields.io/badge/tests-175%20passing-2e6b5a.svg)
+![Tests](https://img.shields.io/badge/tests-198%20passing-2e6b5a.svg)
 
 </div>
 
@@ -37,7 +37,8 @@ rates, different consolidation behaviour, and different eviction protection.
 lexical overlap, recency, importance, and reinforcement from prior recalls —
 blended, then multiplied by the memory's retention. Every result carries a
 per-signal breakdown, so you can tell whether a hit surfaced on merit or just
-on recency.
+on recency. Weights were chosen by grid search against a labelled corpus, and
+ranking quality is pinned by a regression suite rather than asserted.
 
 **Forgetting as a first-class operation.** Retention follows an exponential
 decay keyed to the last time a memory was *touched*, not created — so recall
@@ -243,7 +244,7 @@ crash with a precise message, not serve traffic on a silently wrong default.
 ```bash
 npm install
 npm run build:core     # downstream packages resolve core from dist
-npm test               # 175 tests
+npm test               # 198 tests
 npm run typecheck      # strict, across all three packages
 npm run dev            # dashboard
 npm run dev:server     # API

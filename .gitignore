@@ -41,3 +41,8 @@ coverage/
 .turbo/
 .vercel
 .netlify
+
+# ad-hoc verification scripts
+shot.mjs
+a11y.mjs
+*.screenshot.mjs
