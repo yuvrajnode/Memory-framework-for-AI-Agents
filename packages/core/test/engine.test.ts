@@ -52,6 +52,57 @@ describe('MemoryEngine writes', () => {
     expect(second.record.importance).toBeGreaterThan(first.record.importance);
   });
 
+  it('deduplicates writes that race each other', async () => {
+    const memory = engine();
+    // Deduplication is a check-then-write. Without serialising, all twenty
+    // calls finish their duplicate check before any of them stores, so every
+    // one misses and the store fills with copies.
+    await Promise.all(
+      Array.from({ length: 20 }, () => memory.remember({ content: 'the same exact memory' })),
+    );
+    expect(await memory.count()).toBe(1);
+  });
+
+  it('keeps concurrent writes to different namespaces independent', async () => {
+    const memory = engine();
+    await Promise.all([
+      memory.remember({ content: 'tenant a memory', namespace: 'tenant-a' }),
+      memory.remember({ content: 'tenant b memory', namespace: 'tenant-b' }),
+      memory.remember({ content: 'tenant a memory', namespace: 'tenant-a' }),
+    ]);
+    expect(await memory.count({ namespace: 'tenant-a' })).toBe(1);
+    expect(await memory.count({ namespace: 'tenant-b' })).toBe(1);
+  });
+
+  it('does not let a failed write stall the queue behind it', async () => {
+    const memory = engine();
+    const results = await Promise.allSettled([
+      memory.remember({ content: '' }),
+      memory.remember({ content: 'a perfectly valid memory' }),
+    ]);
+    expect(results[0]!.status).toBe('rejected');
+    expect(results[1]!.status).toBe('fulfilled');
+    expect(await memory.count()).toBe(1);
+  });
+
+  it('stores memories written in different scripts as distinct records', async () => {
+    const memory = engine();
+    for (const content of ['日本語のメモリーテスト', 'مرحبا بالعالم', 'Привет мир']) {
+      await memory.remember({ content });
+    }
+    // Before Unicode-aware tokenization these all reduced to zero tokens and
+    // therefore looked like duplicates of one another.
+    expect(await memory.count()).toBe(3);
+  });
+
+  it('recalls non-Latin content', async () => {
+    const memory = engine();
+    await memory.remember({ content: 'データベース接続がタイムアウトしました' });
+    await memory.remember({ content: '今日の天気は晴れです' });
+    const results = await memory.recall('データベース接続のタイムアウト');
+    expect(results[0]!.record.content).toContain('データベース');
+  });
+
   it('can be configured not to deduplicate', async () => {
     const memory = new MemoryEngine({
       store: new InMemoryStore(),

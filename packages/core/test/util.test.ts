@@ -23,6 +23,27 @@ describe('tokenize', () => {
   it('retains negation, which carries meaning in agent memories', () => {
     expect(tokenize('do not retry the request')).toContain('not');
   });
+
+  it('keeps non-Latin scripts instead of discarding them', () => {
+    // Matching on [a-z] silently reduced every non-Latin memory to zero
+    // tokens, which made them unsearchable and mutually indistinguishable.
+    expect(tokenize('Привет мир')).toEqual(['привет', 'мир']);
+    expect(tokenize('مرحبا بالعالم')).toEqual(['مرحبا', 'بالعالم']);
+    expect(tokenize('Ünïcödé nörmalïzatión').length).toBeGreaterThan(0);
+  });
+
+  it('segments scripts without word boundaries into character bigrams', () => {
+    const tokens = tokenize('データベース');
+    expect(tokens.length).toBeGreaterThan(1);
+    expect(tokens[0]).toHaveLength(2);
+    // Overlapping bigrams, so a substring match still shares terms.
+    expect(tokens).toContain('デー');
+  });
+
+  it('distinguishes unrelated non-Latin texts', () => {
+    expect(jaccard('日本語のメモリーテスト', 'مرحبا بالعالم')).toBe(0);
+    expect(jaccard('データベース接続', 'データベース接続')).toBe(1);
+  });
 });
 
 describe('fingerprint', () => {
@@ -44,8 +65,12 @@ describe('jaccard', () => {
     expect(jaccard('deploy on friday', 'the cat sat quietly')).toBe(0);
   });
 
-  it('treats two empty strings as identical', () => {
-    expect(jaccard('', '')).toBe(1);
+  it('reports no signal when either side has no extractable tokens', () => {
+    // Used to decide whether to merge two memories: an absence of data is
+    // not evidence of a duplicate, so it must not read as certainty.
+    expect(jaccard('', '')).toBe(0);
+    expect(jaccard('!!! ???', '...')).toBe(0);
+    expect(jaccard('real content here', '')).toBe(0);
   });
 });
 

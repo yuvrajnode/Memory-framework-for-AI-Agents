@@ -92,6 +92,17 @@ export class MemoryEngine {
   private readonly autoLink: boolean;
   private readonly linkOptions: LinkOptions;
   private ready: Promise<void> | null = null;
+  /**
+   * Serialises writes per namespace.
+   *
+   * Deduplication is a check-then-write: it queries for a duplicate, awaits
+   * an embedding, then stores. Concurrent writes of the same content all
+   * complete their check before any of them stores, so every one of them
+   * misses and the store fills with copies — the exact failure the feature
+   * exists to prevent. Chaining per namespace keeps the check and the write
+   * atomic with respect to each other without serialising unrelated tenants.
+   */
+  private readonly writeQueues = new Map<string, Promise<unknown>>();
 
   constructor(options: MemoryEngineOptions = {}) {
     this.store = options.store ?? new InMemoryStore();
@@ -127,13 +138,35 @@ export class MemoryEngine {
     return validateNamespace(namespace ?? this.defaultNamespace);
   }
 
+  /** Run `task` after any write already queued for this namespace. */
+  private enqueueWrite<T>(namespace: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.writeQueues.get(namespace) ?? Promise.resolve();
+    // Both handlers run `task`, so one failed write cannot stall the queue.
+    const next = previous.then(task, task);
+    const settled = next.catch(() => undefined);
+    this.writeQueues.set(namespace, settled);
+
+    void settled.then(() => {
+      // Drop the entry once this is the last write in flight, so a server
+      // handling many short-lived namespaces does not accumulate them.
+      if (this.writeQueues.get(namespace) === settled) {
+        this.writeQueues.delete(namespace);
+      }
+    });
+
+    return next;
+  }
+
   // ---------------------------------------------------------------- writes
 
   /** Write a memory, deduplicating against what is already stored. */
   async remember(input: MemoryInput): Promise<WriteResult> {
     await this.init();
     const namespace = this.resolveNamespace(input.namespace);
+    return this.enqueueWrite(namespace, () => this.writeMemory(input, namespace));
+  }
 
+  private async writeMemory(input: MemoryInput, namespace: string): Promise<WriteResult> {
     if (this.deduplicate) {
       const existing = await this.findDuplicate(namespace, input);
       if (existing) {
@@ -163,7 +196,12 @@ export class MemoryEngine {
     return { record, deduplicated: false };
   }
 
-  /** Write several memories, sharing one embedding round trip. */
+  /**
+   * Write several memories in order.
+   *
+   * Sequential rather than parallel: each write must see the ones before it
+   * for deduplication to hold within the batch.
+   */
   async rememberMany(inputs: MemoryInput[]): Promise<WriteResult[]> {
     await this.init();
     const results: WriteResult[] = [];
