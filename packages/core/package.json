@@ -11,10 +11,25 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
-  "keywords": ["ai", "agents", "memory", "vector-search", "rag", "llm"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "memory",
+    "vector-search",
+    "rag",
+    "llm"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -26,5 +41,8 @@
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
+  },
+  "browser": {
+    "./dist/index.js": "./dist/browser.js"
   }
 }

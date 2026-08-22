@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { StoreError } from '../errors.js';
 import type { MemoryLink, MemoryRecord } from '../types.js';
@@ -39,8 +39,14 @@ export class JsonFileStore extends InMemoryStore {
   private readonly path: string;
   private readonly flushIntervalMs: number;
   private flushTimer: NodeJS.Timeout | null = null;
-  private pendingFlush: Promise<void> | null = null;
   private dirty = false;
+  /**
+   * Serialises writes. Two flushes overlapping would race on the temp file —
+   * the first rename moves it away and the second finds nothing there — so
+   * every flush is chained behind the one before it.
+   */
+  private writeChain: Promise<void> = Promise.resolve();
+  private writeCounter = 0;
 
   constructor(options: JsonFileStoreOptions) {
     super();
@@ -79,20 +85,31 @@ export class JsonFileStore extends InMemoryStore {
   private markDirty(): void {
     this.dirty = true;
     if (this.flushIntervalMs === 0) {
-      this.pendingFlush = this.flush();
+      void this.flush().catch(() => undefined);
       return;
     }
     if (this.flushTimer) return;
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
-      this.pendingFlush = this.flush().catch(() => undefined);
+      void this.flush().catch(() => undefined);
     }, this.flushIntervalMs);
     // A pending snapshot must never hold the process open on its own.
     this.flushTimer.unref?.();
   }
 
-  /** Write the current state to disk. Safe to call at any time. */
+  /**
+   * Write the current state to disk. Safe to call at any time, and safe to
+   * call concurrently — overlapping calls queue rather than collide.
+   */
   async flush(): Promise<void> {
+    this.writeChain = this.writeChain.then(
+      () => this.writeSnapshot(),
+      () => this.writeSnapshot(),
+    );
+    return this.writeChain;
+  }
+
+  private async writeSnapshot(): Promise<void> {
     if (!this.dirty) return;
     this.dirty = false;
     const snapshot: Snapshot = {
@@ -101,7 +118,10 @@ export class JsonFileStore extends InMemoryStore {
       records: [...this.records.values()],
       links: [...this.linkStore.values()],
     };
-    const temp = `${this.path}.${process.pid}.tmp`;
+    // The counter keeps concurrent processes and retries from sharing a temp
+    // path even though the chain already serialises this instance's writes.
+    this.writeCounter += 1;
+    const temp = `${this.path}.${process.pid}.${this.writeCounter}.tmp`;
     try {
       await mkdir(dirname(this.path), { recursive: true });
       await writeFile(temp, JSON.stringify(snapshot), 'utf8');
@@ -109,6 +129,7 @@ export class JsonFileStore extends InMemoryStore {
     } catch (error) {
       // Leave the store dirty so the next mutation retries the write.
       this.dirty = true;
+      await rm(temp, { force: true }).catch(() => undefined);
       throw new StoreError(`Could not persist snapshot to ${this.path}`, {
         cause: String(error),
       });
@@ -160,7 +181,7 @@ export class JsonFileStore extends InMemoryStore {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
-    await this.pendingFlush?.catch(() => undefined);
+    // Waits for any in-flight write, then persists whatever is still dirty.
     await this.flush();
   }
 }

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { hash128 } from './hash.js';
 
 /**
  * A compact English stop list. Kept deliberately short: aggressive stopping
@@ -38,7 +38,7 @@ export function normalize(text: string): string {
  * written. Normalisation means casing and whitespace differences collapse.
  */
 export function fingerprint(text: string): string {
-  return createHash('sha256').update(normalize(text)).digest('hex').slice(0, 32);
+  return hash128(normalize(text));
 }
 
 /**

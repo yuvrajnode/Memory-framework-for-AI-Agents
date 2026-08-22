@@ -1,16 +1,7 @@
+import { fnv1a } from '../util/hash.js';
 import { tokenize } from '../util/text.js';
 import { normalizeVector } from './vector.js';
 import type { EmbeddingProvider } from './types.js';
-
-/** FNV-1a, 32-bit. Fast, well distributed, and dependency free. */
-function hash32(text: string, seed = 0x811c9dc5): number {
-  let hash = seed >>> 0;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
 
 /** Character n-grams, which give the embedder tolerance to typos and morphology. */
 function characterGrams(token: string, size: number): string[] {
@@ -97,10 +88,10 @@ export class HashingEmbedder implements EmbeddingProvider {
     for (const [feature, count] of counts) {
       // Sublinear scaling keeps a repeated word from dominating the vector.
       const weight = (salience.get(feature) ?? 1) * (1 + Math.log(count));
-      const index = hash32(feature) % this.dimensions;
+      const index = fnv1a(feature) % this.dimensions;
       // A second, independent hash picks the sign, which makes collisions
       // cancel out on average instead of accumulating.
-      const sign = hash32(feature, 0x9e3779b1) & 1 ? 1 : -1;
+      const sign = fnv1a(feature, 0x9e3779b1) & 1 ? 1 : -1;
       vector[index]! += sign * weight;
     }
 

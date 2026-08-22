@@ -227,6 +227,27 @@ describe('JsonFileStore', () => {
     await second.close();
   });
 
+  it('serialises concurrent flushes instead of racing on the temp file', async () => {
+    const path = join(directory, 'concurrent.json');
+    const store = new JsonFileStore({ path, flushIntervalMs: 0 });
+    await store.init();
+    // Each write schedules a flush immediately; before these were chained,
+    // the first rename moved the shared temp file away and the second failed
+    // with ENOENT.
+    await Promise.all(
+      Array.from({ length: 25 }, (_, i) =>
+        store.put(makeRecord({ content: `concurrent write ${i}` })),
+      ),
+    );
+    await store.flush();
+    await store.close();
+
+    const reloaded = new JsonFileStore({ path });
+    await reloaded.init();
+    expect(await reloaded.count({ namespace: 'test' })).toBe(25);
+    await reloaded.close();
+  });
+
   it('starts empty when no snapshot exists yet', async () => {
     const store = new JsonFileStore({ path: join(directory, 'nested', 'new.json') });
     await store.init();
