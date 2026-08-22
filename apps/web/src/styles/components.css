@@ -558,3 +558,43 @@
   transform: rotate(90deg);
   transition: transform var(--transition);
 }
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+/* A table cell that behaves like a button without looking like one. */
+.link-cell {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-cell:hover {
+  color: var(--accent);
+}
+
+.meta-grid {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  padding-top: var(--s3);
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.meta-grid dd {
+  margin: 0;
+}
