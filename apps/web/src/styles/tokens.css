@@ -1,0 +1,125 @@
+/*
+ * Design tokens.
+ *
+ * The palette is deliberately warm and paper-like rather than the cool grey
+ * that ships with every component library, and the accent is a terracotta
+ * rather than the default indigo. The four memory kinds each get a muted,
+ * clearly separable hue that survives both themes — they are read as data,
+ * not decoration, so they never appear at full saturation.
+ */
+
+:root {
+  /* --- surfaces --- */
+  --paper: #fbf9f5;
+  --surface: #ffffff;
+  --surface-sunken: #f4f1ea;
+  --surface-raised: #ffffff;
+  --overlay: rgba(23, 21, 15, 0.36);
+
+  /* --- ink --- */
+  --ink: #17150f;
+  --ink-muted: #6b6558;
+  --ink-faint: #948d7e;
+  --ink-inverse: #fbf9f5;
+
+  /* --- lines --- */
+  --rule: #e5dfd3;
+  --rule-strong: #d3ccbc;
+  --focus: #be4b27;
+
+  /* --- brand --- */
+  --accent: #be4b27;
+  --accent-hover: #a53f1f;
+  --accent-soft: #f7e9e3;
+  --accent-ink: #ffffff;
+
+  /* --- memory kinds --- */
+  --kind-procedural: #2e6b5a;
+  --kind-semantic: #42557f;
+  --kind-episodic: #96690f;
+  --kind-working: #7b4e7a;
+  --kind-procedural-soft: #e3efeb;
+  --kind-semantic-soft: #e6eaf3;
+  --kind-episodic-soft: #f4ecd9;
+  --kind-working-soft: #efe6ef;
+
+  /* --- status --- */
+  --positive: #2e6b5a;
+  --warning: #96690f;
+  --danger: #b3402c;
+  --danger-soft: #f8e7e3;
+
+  /* --- type --- */
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.75rem;
+
+  /* --- space, on a 4px grid --- */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+  --s8: 4rem;
+
+  /* --- geometry --- */
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-lg: 8px;
+  --rail-width: 232px;
+  --topbar-height: 60px;
+
+  /* Shadows stay almost invisible: this UI separates planes with rules. */
+  --shadow-sm: 0 1px 2px rgba(23, 21, 15, 0.05);
+  --shadow-md: 0 6px 20px -8px rgba(23, 21, 15, 0.18);
+
+  --transition: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme='dark'] {
+  --paper: #141310;
+  --surface: #1c1a16;
+  --surface-sunken: #100f0d;
+  --surface-raised: #232019;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --ink: #ece7dd;
+  --ink-muted: #9a9285;
+  --ink-faint: #6f6858;
+  --ink-inverse: #141310;
+
+  --rule: #2e2b24;
+  --rule-strong: #3d392f;
+
+  --accent: #e0714a;
+  --accent-hover: #ef8560;
+  --accent-soft: #33211a;
+  --accent-ink: #17150f;
+
+  --kind-procedural: #63b39c;
+  --kind-semantic: #8aa3d6;
+  --kind-episodic: #d3a34a;
+  --kind-working: #bb92ba;
+  --kind-procedural-soft: #1b2f2a;
+  --kind-semantic-soft: #1d2431;
+  --kind-episodic-soft: #302716;
+  --kind-working-soft: #2a2029;
+
+  --positive: #63b39c;
+  --warning: #d3a34a;
+  --danger: #e07a63;
+  --danger-soft: #331f1a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px -10px rgba(0, 0, 0, 0.7);
+}

@@ -1,0 +1,5 @@
+import { Empty } from '../components/primitives.js';
+
+export function MemoriesView() {
+  return <Empty title="Coming next" body="This view is not built yet." />;
+}
