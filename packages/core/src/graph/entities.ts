@@ -27,14 +27,42 @@ const DATE = /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/g;
 
 /**
  * Words that pass the title-case heuristic but are almost never entities.
- * Sentence-initial capitalisation is the main source of noise here.
+ *
+ * Capitalisation carries much less signal than it looks like it does:
+ * sentence-initial position, weekday and month names, and ordinary nouns
+ * that happen to start a clause all match `[A-Z][a-z]+`. Without this list
+ * the extractor confidently reports "Disk", "Check" and "Thursday" as people.
  */
 const TITLE_CASE_STOP = new Set([
-  'The', 'This', 'That', 'These', 'Those', 'There', 'Then', 'They', 'When',
-  'While', 'Where', 'What', 'Which', 'After', 'Before', 'Because', 'However',
-  'Also', 'Since', 'Should', 'Would', 'Could', 'Please', 'Note', 'User',
-  'Agent', 'System',
+  'The', 'This', 'That', 'These', 'Those', 'There', 'Then', 'They', 'Their',
+  'When', 'While', 'Where', 'What', 'Which', 'After', 'Before', 'Because',
+  'However', 'Also', 'Since', 'Should', 'Would', 'Could', 'Please', 'Note',
+  'User', 'Agent', 'System', 'Currently', 'Waiting', 'Opened', 'Deployed',
+  'Root', 'Build', 'Reminder', 'Staging', 'Release', 'Incident', 'Nightly',
+  'Disk', 'Check', 'Three', 'Feature', 'Email', 'Scratch', 'Every', 'Only',
+  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+  'September', 'October', 'November', 'December',
 ]);
+
+/** Types whose members are inherently specific, whatever their surface form. */
+const SPECIFIC_TYPES: ReadonlySet<EntityType> = new Set([
+  'identifier',
+  'url',
+  'email',
+]);
+
+/**
+ * Whether an entity is distinctive enough to name a memory by.
+ *
+ * A single capitalised word seen once is weak evidence; a multi-word proper
+ * noun, a recurring name, or anything with a machine-readable shape is not.
+ */
+export function isDistinctive(entity: Entity): boolean {
+  if (SPECIFIC_TYPES.has(entity.type)) return true;
+  if (entity.label.includes(' ')) return true;
+  return entity.count > 1;
+}
 
 const ORG_SUFFIX = /\b(inc|llc|ltd|corp|gmbh|labs?|technologies|systems|group)\b/i;
 

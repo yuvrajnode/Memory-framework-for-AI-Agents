@@ -2,7 +2,7 @@ import { recordSimilarity } from '../pipeline/clustering.js';
 import type { MemoryStore } from '../store/types.js';
 import type { MemoryLink, MemoryRecord } from '../types.js';
 import { createId } from '../util/id.js';
-import { entityOverlap, extractEntities } from './entities.js';
+import { entityOverlap, extractEntities, isDistinctive } from './entities.js';
 
 export interface LinkOptions {
   /** Semantic similarity above which two memories are linked. */
@@ -219,10 +219,19 @@ export class GraphBuilder {
   }
 }
 
-/** A short, human-readable handle for a record in a graph view. */
+/**
+ * A short, human-readable handle for a record in a graph view.
+ *
+ * An entity is only used when it is distinctive enough to identify the memory
+ * on its own — otherwise a leading snippet of the content is far more
+ * informative than a generic capitalised word plucked out of the middle of a
+ * sentence.
+ */
 function labelFor(record: MemoryRecord): string {
-  const entity = extractEntities(record.content, 1)[0];
-  if (entity && entity.label.length <= 32) return entity.label;
+  const entity = extractEntities(record.content, 4).find(
+    (candidate) => isDistinctive(candidate) && candidate.label.length <= 32,
+  );
+  if (entity) return entity.label;
   const words = record.content.split(/\s+/).slice(0, 6).join(' ');
   return words.length > 44 ? `${words.slice(0, 44)}…` : words;
 }

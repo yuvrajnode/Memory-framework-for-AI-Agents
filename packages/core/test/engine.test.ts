@@ -4,7 +4,7 @@ import { InMemoryStore } from '../src/store/in-memory.js';
 import { ValidationError, NotFoundError } from '../src/errors.js';
 import { packContext } from '../src/context/packer.js';
 import { EventBus } from '../src/events.js';
-import { extractEntities, entityOverlap } from '../src/graph/entities.js';
+import { extractEntities, entityOverlap, isDistinctive } from '../src/graph/entities.js';
 import { embedder, makeRecord, DAY_MS } from './helpers.js';
 
 const engine = () => new MemoryEngine({ store: new InMemoryStore(), embedder });
@@ -237,6 +237,14 @@ describe('MemoryEngine stats and graph', () => {
     expect(stats).toMatchObject({ total: 0, averageImportance: 0, oldestCreatedAt: null });
   });
 
+  it('labels nodes from a content snippet when no distinctive entity exists', async () => {
+    const memory = engine();
+    await memory.remember({ content: 'the disk filled up again overnight without warning' });
+    const graph = await memory.graphSnapshot();
+    // "Disk" alone must not become the label; the snippet is more informative.
+    expect(graph.nodes[0]!.label.toLowerCase()).toContain('disk filled');
+  });
+
   it('builds a graph with nodes and edges', async () => {
     const memory = engine();
     await memory.rememberMany([
@@ -386,6 +394,26 @@ describe('entity extraction', () => {
     );
     expect(keys).not.toContain('the');
     expect(keys).not.toContain('however');
+  });
+
+  it('rejects weekday and sentence-opening words as entities', () => {
+    const keys = extractEntities(
+      'Deployed on Thursday. Nightly backup verification passed.',
+    ).map((entity) => entity.key);
+    expect(keys).not.toContain('thursday');
+    expect(keys).not.toContain('nightly');
+    expect(keys).not.toContain('deployed');
+  });
+
+  it('treats one-off capitalised words as not distinctive', () => {
+    const single = { key: 'disk', label: 'Disk', type: 'person' as const, count: 1 };
+    const repeated = { ...single, count: 3 };
+    const compound = { ...single, key: 'ada okafor', label: 'Ada Okafor' };
+    const identifier = { key: 'inc-204', label: 'INC-204', type: 'identifier' as const, count: 1 };
+    expect(isDistinctive(single)).toBe(false);
+    expect(isDistinctive(repeated)).toBe(true);
+    expect(isDistinctive(compound)).toBe(true);
+    expect(isDistinctive(identifier)).toBe(true);
   });
 
   it('scores overlap between texts sharing an entity', () => {

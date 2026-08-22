@@ -598,3 +598,15 @@
 .meta-grid dd {
   margin: 0;
 }
+
+.graph-tooltip {
+  position: absolute;
+  z-index: 5;
+  max-width: 250px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
