@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: mnemos-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STORE
+        value: sqlite
+      - key: DATA_DIR
+        value: /data
+      - key: EMBEDDER
+        value: hashing
+      - key: MAINTENANCE_INTERVAL_MS
+        value: '3600000'
+      # Generated once and kept; the API refuses unauthenticated writes with it set.
+      - key: API_KEY
+        generateValue: true
+    disk:
+      name: mnemos-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,0 +1,34 @@
+services:
+  api:
+    build: .
+    image: mnemos/server:0.1.0
+    restart: unless-stopped
+    ports:
+      - '${PORT:-8080}:8080'
+    environment:
+      NODE_ENV: production
+      STORE: ${STORE:-sqlite}
+      DATA_DIR: /data
+      EMBEDDER: ${EMBEDDER:-hashing}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-384}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      API_KEY: ${API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Consolidate and reclaim hourly. Set 0 to run maintenance manually.
+      MAINTENANCE_INTERVAL_MS: ${MAINTENANCE_INTERVAL_MS:-3600000}
+    volumes:
+      - mnemos-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mnemos-data:

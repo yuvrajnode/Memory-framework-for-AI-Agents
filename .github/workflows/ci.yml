@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  verify:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the framework
+        # Everything downstream resolves @mnemos/core from dist, so this comes
+        # before any typecheck of the server or the dashboard.
+        run: npm run build -w @mnemos/core
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build the API
+        run: npm run build -w @mnemos/server
+
+      - name: Build the dashboard
+        run: npm run build -w @mnemos/web
+
+      - name: Upload the dashboard bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 7
+
+  docker:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: mnemos/server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the container
+        # Proves the image boots, serves, persists a write and recalls it —
+        # a green build that cannot answer a request is not a green build.
+        run: |
+          docker run -d --name mnemos -p 8080:8080 mnemos/server:ci
+          for attempt in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:8080/health
+          curl -sf http://localhost:8080/ready
+          curl -sf -X POST http://localhost:8080/v1/memories \
+            -H 'content-type: application/json' \
+            -d '{"content":"CI smoke test memory about deployments","kind":"semantic"}'
+          curl -sf -X POST http://localhost:8080/v1/recall \
+            -H 'content-type: application/json' \
+            -d '{"query":"deployments"}' | grep -q 'smoke test'
+          docker logs mnemos
+          docker rm -f mnemos

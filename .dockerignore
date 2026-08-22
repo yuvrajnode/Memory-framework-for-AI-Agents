@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.local
+data
+.git
+.github
+docs
+*.md
+!README.md
+.vscode
+.idea
+coverage
