@@ -610,3 +610,57 @@
   box-shadow: var(--shadow-md);
   pointer-events: none;
 }
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s3);
+}
+
+.bar-chart__column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s1);
+  height: 100%;
+  min-width: 0;
+}
+
+.bar-chart__bar {
+  width: 100%;
+  max-width: 56px;
+  border-radius: 2px 2px 0 0;
+  transition: height 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-chart__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proportion {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.proportion--empty {
+  background: var(--surface-sunken);
+}
+
+.proportion__segment {
+  transition: width 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
