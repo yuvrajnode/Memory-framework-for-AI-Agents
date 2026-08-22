@@ -19,7 +19,14 @@ export class InMemoryStore implements MemoryStore {
   readonly id: string = 'in-memory';
 
   protected records = new Map<string, MemoryRecord>();
-  protected fingerprints = new Map<string, string>();
+  /**
+   * Fingerprint → the ids carrying it, oldest first.
+   *
+   * A set rather than a single id, because two distinct memories may
+   * legitimately share a content hash and dropping one of them here would
+   * make the index disagree with the records it indexes.
+   */
+  protected fingerprints = new Map<string, Set<string>>();
   protected linkStore = new Map<string, MemoryLink>();
 
   async init(): Promise<void> {
@@ -34,17 +41,27 @@ export class InMemoryStore implements MemoryStore {
     return `${namespace}#${fingerprint}`;
   }
 
+  private unindexFingerprint(namespace: string, fingerprint: string, id: string): void {
+    const key = this.fingerprintKey(namespace, fingerprint);
+    const ids = this.fingerprints.get(key);
+    if (!ids) return;
+    ids.delete(id);
+    if (ids.size === 0) this.fingerprints.delete(key);
+  }
+
   async put(record: MemoryRecord): Promise<MemoryRecord> {
     const stored = cloneRecord(record);
     const existing = this.records.get(this.key(record.namespace, record.id));
     if (existing && existing.fingerprint !== stored.fingerprint) {
-      this.fingerprints.delete(this.fingerprintKey(existing.namespace, existing.fingerprint));
+      this.unindexFingerprint(existing.namespace, existing.fingerprint, existing.id);
     }
     this.records.set(this.key(stored.namespace, stored.id), stored);
-    this.fingerprints.set(
-      this.fingerprintKey(stored.namespace, stored.fingerprint),
-      stored.id,
-    );
+
+    const key = this.fingerprintKey(stored.namespace, stored.fingerprint);
+    const ids = this.fingerprints.get(key);
+    if (ids) ids.add(stored.id);
+    else this.fingerprints.set(key, new Set([stored.id]));
+
     return cloneRecord(stored);
   }
 
@@ -83,7 +100,7 @@ export class InMemoryStore implements MemoryStore {
     const existing = this.records.get(this.key(namespace, id));
     if (!existing) return false;
     this.records.delete(this.key(namespace, id));
-    this.fingerprints.delete(this.fingerprintKey(namespace, existing.fingerprint));
+    this.unindexFingerprint(namespace, existing.fingerprint, id);
     await this.deleteLinksFor(namespace, id);
     return true;
   }
@@ -118,9 +135,24 @@ export class InMemoryStore implements MemoryStore {
     namespace: string,
     fingerprint: string,
   ): Promise<MemoryRecord | null> {
-    const id = this.fingerprints.get(this.fingerprintKey(namespace, fingerprint));
-    if (!id) return null;
-    return this.get(namespace, id);
+    const ids = this.fingerprints.get(this.fingerprintKey(namespace, fingerprint));
+    if (!ids || ids.size === 0) return null;
+
+    // Oldest first, so a collision resolves to the same record on every
+    // backend and across restarts.
+    let oldest: MemoryRecord | null = null;
+    for (const id of ids) {
+      const record = this.records.get(this.key(namespace, id));
+      if (!record) continue;
+      if (
+        !oldest ||
+        record.createdAt < oldest.createdAt ||
+        (record.createdAt === oldest.createdAt && record.id < oldest.id)
+      ) {
+        oldest = record;
+      }
+    }
+    return oldest ? cloneRecord(oldest) : null;
   }
 
   async listNamespaces(): Promise<string[]> {
@@ -141,7 +173,7 @@ export class InMemoryStore implements MemoryStore {
     for (const [key, record] of [...this.records]) {
       if (record.namespace !== namespace) continue;
       this.records.delete(key);
-      this.fingerprints.delete(this.fingerprintKey(namespace, record.fingerprint));
+      this.unindexFingerprint(namespace, record.fingerprint, record.id);
       removed += 1;
     }
     for (const [key, link] of [...this.linkStore]) {

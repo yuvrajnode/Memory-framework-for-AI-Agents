@@ -55,7 +55,12 @@ CREATE INDEX IF NOT EXISTS idx_memories_ns_created ON memories (namespace, creat
 CREATE INDEX IF NOT EXISTS idx_memories_ns_kind    ON memories (namespace, kind);
 CREATE INDEX IF NOT EXISTS idx_memories_ns_agent   ON memories (namespace, agent_id);
 CREATE INDEX IF NOT EXISTS idx_memories_expires    ON memories (expires_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_fingerprint
+-- Non-unique on purpose. Two distinct memories may legitimately share a
+-- content hash — a consolidation summary can land on text identical to an
+-- episode, and the same sentence can be filed under two kinds. Deduplication
+-- is the engine's decision, made before the write; a unique constraint here
+-- would turn that into silent data loss.
+CREATE INDEX IF NOT EXISTS idx_memories_fingerprint
   ON memories (namespace, fingerprint);
 
 CREATE TABLE IF NOT EXISTS links (
@@ -127,6 +132,29 @@ export class SqliteStore implements MemoryStore {
     this.db.exec('PRAGMA synchronous = NORMAL;');
     this.db.exec('PRAGMA foreign_keys = ON;');
     this.db.exec(SCHEMA);
+    // Databases created before the fingerprint index was made non-unique
+    // still carry the unique version, which would reject legitimate writes.
+    this.db.exec('DROP INDEX IF EXISTS idx_memories_fingerprint_unique;');
+    this.migrateFingerprintIndex();
+  }
+
+  /**
+   * Rebuild the fingerprint index if an older database created it as UNIQUE.
+   *
+   * SQLite has no ALTER INDEX, and `CREATE INDEX IF NOT EXISTS` will not
+   * replace an index that already exists under the same name, so the old one
+   * has to be dropped explicitly.
+   */
+  private migrateFingerprintIndex(): void {
+    const row = this.handle
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?")
+      .get('idx_memories_fingerprint');
+    const definition = typeof row?.['sql'] === 'string' ? row['sql'] : '';
+    if (!/unique/i.test(definition)) return;
+    this.handle.exec('DROP INDEX idx_memories_fingerprint;');
+    this.handle.exec(
+      'CREATE INDEX idx_memories_fingerprint ON memories (namespace, fingerprint);',
+    );
   }
 
   private get handle(): SqliteDatabase {
@@ -135,12 +163,6 @@ export class SqliteStore implements MemoryStore {
   }
 
   async put(record: MemoryRecord): Promise<MemoryRecord> {
-    // A rewritten record may collide with another row's fingerprint; clearing
-    // the stale row first keeps the unique index and dedup semantics aligned.
-    this.handle
-      .prepare('DELETE FROM memories WHERE namespace = ? AND fingerprint = ? AND id <> ?')
-      .run(record.namespace, record.fingerprint, record.id);
-
     this.handle
       .prepare(
         `INSERT INTO memories (${COLUMNS})
@@ -314,8 +336,13 @@ export class SqliteStore implements MemoryStore {
     namespace: string,
     fingerprint: string,
   ): Promise<MemoryRecord | null> {
+    // Oldest first, so a collision resolves to the same record on every
+    // backend and across restarts.
     const row = this.handle
-      .prepare(`SELECT ${COLUMNS} FROM memories WHERE namespace = ? AND fingerprint = ?`)
+      .prepare(
+        `SELECT ${COLUMNS} FROM memories WHERE namespace = ? AND fingerprint = ?
+         ORDER BY created_at ASC, id ASC LIMIT 1`,
+      )
       .get(namespace, fingerprint);
     return row ? rowToRecord(row) : null;
   }

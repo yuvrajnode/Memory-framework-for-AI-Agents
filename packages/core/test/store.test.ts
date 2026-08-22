@@ -64,6 +64,48 @@ function behavesLikeAStore(name: string, create: () => Promise<MemoryStore>) {
       expect(found?.id).toBe(record.id);
     });
 
+    it('keeps both records when two share a content fingerprint', async () => {
+      // Distinct memories can legitimately collide: a consolidation summary
+      // may land on text identical to an episode, or the same sentence may be
+      // filed under two kinds. Deduplication is the engine's decision, made
+      // before the write — the store must not silently drop one.
+      const first = makeRecord({ content: 'user prefers dark mode', kind: 'episodic' });
+      const second = makeRecord({ content: 'user prefers dark mode', kind: 'semantic' });
+      expect(first.fingerprint).toBe(second.fingerprint);
+
+      await store.put({ ...first, createdAt: 1000 });
+      await store.put({ ...second, createdAt: 2000 });
+
+      expect(await store.count({ namespace: 'test' })).toBe(2);
+    });
+
+    it('resolves a fingerprint collision to the oldest record', async () => {
+      const first = makeRecord({ content: 'colliding content here' });
+      const second = makeRecord({ content: 'colliding content here' });
+      await store.put({ ...second, createdAt: 2000 });
+      await store.put({ ...first, createdAt: 1000 });
+
+      const found = await store.findByFingerprint('test', first.fingerprint);
+      expect(found?.id).toBe(first.id);
+    });
+
+    it('stops matching a fingerprint once its record is deleted', async () => {
+      const record = makeRecord({ content: 'transient content' });
+      await store.put(record);
+      await store.delete('test', record.id);
+      expect(await store.findByFingerprint('test', record.fingerprint)).toBeNull();
+    });
+
+    it('reindexes the fingerprint when content is rewritten', async () => {
+      const record = makeRecord({ content: 'before the edit' });
+      await store.put(record);
+      const rewritten = makeRecord({ content: 'after the edit' });
+      await store.put({ ...record, content: rewritten.content, fingerprint: rewritten.fingerprint });
+
+      expect(await store.findByFingerprint('test', record.fingerprint)).toBeNull();
+      expect((await store.findByFingerprint('test', rewritten.fingerprint))?.id).toBe(record.id);
+    });
+
     it('requires every tag when filtering by tags', async () => {
       await store.put(makeRecord({ content: 'both', tags: ['a', 'b'] }));
       await store.put(makeRecord({ content: 'one', tags: ['a'] }));
