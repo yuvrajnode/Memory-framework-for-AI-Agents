@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Bm25Index } from '../src/retrieval/bm25.js';
 import { maximalMarginalRelevance } from '../src/retrieval/mmr.js';
 import { resolveWeights, scoreRecord } from '../src/retrieval/scoring.js';
+import { DEFAULT_RECALL_WEIGHTS } from '../src/types.js';
 import { DecayModel } from '../src/pipeline/decay.js';
 import { DAY_MS, embedder, makeRecord } from './helpers.js';
 
@@ -127,7 +128,10 @@ describe('scoreRecord', () => {
 
 describe('resolveWeights', () => {
   it('merges partial overrides onto the defaults', () => {
-    expect(resolveWeights({ semantic: 3 })).toMatchObject({ semantic: 3, lexical: 0.45 });
+    expect(resolveWeights({ semantic: 3 })).toMatchObject({
+      semantic: 3,
+      lexical: DEFAULT_RECALL_WEIGHTS.lexical,
+    });
   });
 
   it('ignores non-finite values instead of poisoning the blend', () => {

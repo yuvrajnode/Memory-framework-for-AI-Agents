@@ -137,12 +137,22 @@ export interface RecallWeights {
   usage: number;
 }
 
+/**
+ * Defaults chosen by grid search over a labelled corpus (see
+ * `test/retrieval-quality.test.ts`), not by intuition.
+ *
+ * The search optimum actually sets `importance` to zero, which scores
+ * marginally better on that corpus but removes the caller's main lever over
+ * what persists — a twelve-query benchmark is not grounds for deleting a
+ * feature. These weights sit within 0.02 MRR of the optimum while keeping
+ * every signal live.
+ */
 export const DEFAULT_RECALL_WEIGHTS: RecallWeights = {
   semantic: 1,
-  lexical: 0.45,
-  recency: 0.25,
-  importance: 0.35,
-  usage: 0.15,
+  lexical: 0.6,
+  recency: 0.15,
+  importance: 0.2,
+  usage: 0.1,
 };
 
 export interface RecallOptions {

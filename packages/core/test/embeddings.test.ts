@@ -18,9 +18,12 @@ describe('vector maths', () => {
     expect(cosineSimilarity([1, 0], [-1, 0])).toBeCloseTo(-1, 10);
   });
 
-  it('rescales cosine into [0, 1] for blending', () => {
+  it('clamps cosine into [0, 1] for blending, discarding the sign', () => {
+    expect(cosineScore([1, 0], [1, 0])).toBeCloseTo(1, 10);
+    // Orthogonal and opposing vectors both score zero: neither is evidence
+    // for the result, and rescaling them to 0.5 would floor every candidate.
+    expect(cosineScore([1, 0], [0, 1])).toBeCloseTo(0, 10);
     expect(cosineScore([1, 0], [-1, 0])).toBeCloseTo(0, 10);
-    expect(cosineScore([1, 0], [0, 1])).toBeCloseTo(0.5, 10);
   });
 
   it('compares mismatched lengths over the shared prefix rather than throwing', () => {
