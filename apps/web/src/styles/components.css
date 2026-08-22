@@ -664,3 +664,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.result-card {
+  padding: var(--s3);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--kind-semantic);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
