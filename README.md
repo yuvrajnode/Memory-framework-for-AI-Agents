@@ -281,6 +281,4 @@ question:
   lines of CSS custom properties. Charts and the force-directed graph layout
   are hand-written rather than pulled from d3 or a plotting library.
 
-## License
 
-MIT © [yuvrajnode](https://github.com/yuvrajnode)
